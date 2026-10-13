@@ -8,7 +8,10 @@ DB = "notes.db"
 
 
 def db():
-    return sqlite3.connect(DB)
+    """Open a connection with row access by column name."""
+    conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 @app.get("/notes/<int:note_id>")
