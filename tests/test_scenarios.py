@@ -83,7 +83,11 @@ def _text_reply(text):
 
 
 @pytest.mark.parametrize("on_error", ["closed", "open"])
-@pytest.mark.parametrize("reply", ["Sure! Looks fine.", "{not json}", '{"verdict": "ok"}', '{"findings": "none"}'])
+@pytest.mark.parametrize("reply", ["Sure! Looks fine.", "{not json}", '{"verdict": "ok"}', '{"findings": "none"}',
+                                   '{"findings": [{"severity": "critical", "line": 1e999}]}',
+                                   '{"findings": [{"severity": "critical", "line": NaN}]}',
+                                   '{"findings": [{"severity": "critical", "rule": [1]}]}',
+                                   '{"findings": [{"severity": "critical", "path": ["app.py"]}]}'])
 def test_unparseable_model_reply_fails(on_error, reply):
     """Audit PoC 1: a prompt-injected diff makes the model answer in prose. That must never PASS."""
     plat = FakePlatform(EVIL)
@@ -127,3 +131,11 @@ def test_on_truncate_pass_still_flags_truncation():
     assert run(plat, cfg, "k", caller=RecordingCaller(fake_response([]))) == 0
     assert plat.status[0] is True and "not fully reviewed" in plat.status[1]
     assert "✅ PASS" in _top_line(plat.summary) and "not fully reviewed" in _top_line(plat.summary)
+
+
+def test_fail_open_error_with_truncation_does_not_blame_on_truncate():
+    cfg = load_config(ROOT / ".pr-gate.yml", {"on_error": "open"})
+    plat = FakePlatform(_file_diff("app.py", "x" * 40_001))
+    assert run(plat, cfg, "k", caller=RecordingCaller(RuntimeError("API down"))) == 0
+    assert plat.status == (True, "PASS") and "on_truncate" not in plat.status[1]
+    assert "not fully reviewed" in _top_line(plat.summary) and "fail-open" in plat.summary

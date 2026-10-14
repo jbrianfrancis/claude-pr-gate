@@ -51,7 +51,7 @@ def run(platform, cfg, api_key: str, caller=None) -> int:
         except Exception as e:  # inline comments are best-effort
             print(f"warning: inline comments failed: {e}", file=sys.stderr)
     desc = "PASS" if passed else ("FAIL: " + "; ".join(reasons) if reasons else "FAIL: gate error")
-    if passed and truncated:
+    if passed and truncated and error is None:
         desc = f"PASS, but {len(truncated)} file(s) truncated and not fully reviewed (on_truncate: pass)"
     platform.set_status(passed, desc)
     return 0 if passed else 1

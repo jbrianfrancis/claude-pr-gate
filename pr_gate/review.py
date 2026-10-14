@@ -97,11 +97,16 @@ def parse_findings(text: str) -> list[Finding]:
         if sev not in SEVERITIES:
             sev = "info"
         line = f.get("line")
+        if not all(isinstance(f.get(k), (str, type(None))) for k in ("path", "rule")):
+            raise ModelOutputError("model response has a finding with a non-string path or rule")
+        try:
+            line = int(line) if isinstance(line, (int, float)) or (isinstance(line, str) and line.isdigit()) else None
+        except (ValueError, OverflowError) as e:   # NaN / Infinity
+            raise ModelOutputError(f"model response has a finding with a bad line number: {e}") from e
         out.append(Finding(
             severity=sev, category=str(f.get("category", "quality")),
             title=str(f.get("title", "")).strip()[:200], detail=str(f.get("detail", "")).strip(),
-            path=f.get("path"), line=int(line) if isinstance(line, (int, float)) or (isinstance(line, str) and line.isdigit()) else None,
-            rule=f.get("rule"),
+            path=f.get("path"), line=line, rule=f.get("rule"),
         ))
     return out
 
