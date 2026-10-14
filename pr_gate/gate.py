@@ -18,8 +18,10 @@ def rank(sev: str) -> int:
     return SEVERITIES.index(sev)
 
 
-def decide(cfg: Config, findings: list[Finding]) -> tuple[bool, list[str]]:
+def decide(cfg: Config, findings: list[Finding], truncated: list[str] = ()) -> tuple[bool, list[str]]:
     reasons = []
+    if truncated and cfg.on_truncate == "fail":
+        reasons.append(f"{len(truncated)} file(s) truncated or over budget, not fully reviewed")
     if cfg.fail_on != "none":
         bad = [f for f in findings if rank(f.severity) >= rank(cfg.fail_on)]
         if bad:
@@ -42,6 +44,8 @@ def render_summary(cfg: Config, passed: bool, reasons: list[str], findings: list
                    redactions: int = 0, error: str | None = None) -> str:
     lines = [MARKER]
     status = "✅ PASS" if passed else "❌ FAIL"
+    if truncated:
+        status += f" · ⚠️ {len(truncated)} file(s) not fully reviewed (diff truncated)"
     lines.append(f"## AI PR Gate: {status}")
     if error:
         lines.append(f"\n> ⚠️ The gate could not complete: `{error}` → "

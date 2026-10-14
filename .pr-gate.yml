@@ -4,6 +4,7 @@ fail_on: high              # info | low | medium | high | critical | none
 max_findings:
   medium: 5                # also fail if more than 5 medium findings
 on_error: closed           # closed = fail if the gate itself breaks; open = pass
+on_truncate: fail          # fail = fail if any file is truncated or over budget; pass = pass, flagged
 categories: [security, quality]
 ignore_paths:              # added to built-in ignores (lockfiles, dist, vendor, *.min.js)
   - "docs/**"

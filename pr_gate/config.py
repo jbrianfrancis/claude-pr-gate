@@ -22,6 +22,7 @@ DEFAULTS: dict[str, Any] = {
                      "**/*.p12", "**/*.pfx", "**/credentials*", "**/secrets*.y*ml"],
     "max_diff_chars": 120_000,    # total diff budget sent to the model
     "chunk_chars": 40_000,        # per-request chunk size
+    "on_truncate": "fail",        # "fail" = fail if any file is truncated or over budget; "pass" = pass, flagged
     "inline_comments": True,
     "max_inline_comments": 15,
     "custom_rules": [],           # list of {id, description, severity}
@@ -40,6 +41,7 @@ class Config:
     secret_paths: list[str]
     max_diff_chars: int
     chunk_chars: int
+    on_truncate: str
     inline_comments: bool
     max_inline_comments: int
     custom_rules: list[dict[str, Any]] = field(default_factory=list)
@@ -84,6 +86,8 @@ def _validate(d: dict[str, Any]) -> None:
         raise ConfigError(f"fail_on must be one of {SEVERITIES + ['none']}")
     if d["on_error"] not in ("open", "closed"):
         raise ConfigError("on_error must be 'open' or 'closed'")
+    if d["on_truncate"] not in ("fail", "pass"):
+        raise ConfigError("on_truncate must be 'fail' or 'pass'")
     for sev in d["max_findings"]:
         if sev not in SEVERITIES:
             raise ConfigError(f"max_findings key {sev!r} is not a severity")

@@ -5,7 +5,7 @@ from pr_gate.config import ConfigError, load_config
 
 def test_defaults_when_missing(tmp_path):
     cfg = load_config(tmp_path / "nope.yml")
-    assert cfg.fail_on == "high" and cfg.on_error == "closed"
+    assert cfg.fail_on == "high" and cfg.on_error == "closed" and cfg.on_truncate == "fail"
     assert cfg.model.startswith("claude-sonnet")
 
 
@@ -23,7 +23,8 @@ def test_override_model(tmp_path):
 
 
 @pytest.mark.parametrize("yml", ["fail_on: severe", "on_error: maybe", "bogus: 1",
-                                 "custom_rules: [{id: x}]", "max_findings: {huge: 1}"])
+                                 "custom_rules: [{id: x}]", "max_findings: {huge: 1}",
+                                 "on_truncate: maybe"])
 def test_invalid(tmp_path, yml):
     p = tmp_path / "c.yml"
     p.write_text(yml)

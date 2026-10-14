@@ -90,3 +90,40 @@ def test_unparseable_model_reply_fails(on_error, reply):
     cfg = load_config(ROOT / ".pr-gate.yml", {"on_error": on_error})
     assert run(plat, cfg, "k", caller=RecordingCaller(_text_reply(reply))) == 1
     assert plat.status == (False, "FAIL: gate error") and "fail-closed" in plat.summary
+
+
+def _file_diff(path, body):
+    return f"diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n@@ -0,0 +1,1 @@\n+{body}\n"
+
+
+def _top_line(summary):
+    return summary.splitlines()[1]
+
+
+def test_payload_past_chunk_truncation_does_not_pass():
+    """Audit PoC 2b: malicious code after the 40 KB per-file cut is never sent to the model."""
+    big = _file_diff("app.py", "x" * 40_000).rstrip("\n") + "\n+os.system(request.args['c'])\n"
+    caller = RecordingCaller(fake_response([]))
+    plat = FakePlatform(big)
+    assert run(plat, CFG, "k", caller=caller) == 1
+    assert "os.system" not in "".join(caller.prompts)
+    assert plat.status[0] is False and plat.status[1].startswith("FAIL: 1 file(s) truncated")
+    assert "❌ FAIL" in _top_line(plat.summary) and "not fully reviewed" in _top_line(plat.summary)
+
+
+def test_padded_diff_over_budget_does_not_pass():
+    """Audit PoC 2: big benign files push the diff past max_diff_chars."""
+    pad = _file_diff("big.txt", "x" * 39_000) * 4
+    caller = RecordingCaller(fake_response([]))
+    plat = FakePlatform(pad + EVIL)
+    assert run(plat, CFG, "k", caller=caller) == 1
+    assert plat.status[0] is False and "truncated" in plat.status[1]
+    assert "not fully reviewed" in _top_line(plat.summary)
+
+
+def test_on_truncate_pass_still_flags_truncation():
+    cfg = load_config(ROOT / ".pr-gate.yml", {"on_truncate": "pass"})
+    plat = FakePlatform(_file_diff("app.py", "x" * 40_001))
+    assert run(plat, cfg, "k", caller=RecordingCaller(fake_response([]))) == 0
+    assert plat.status[0] is True and "not fully reviewed" in plat.status[1]
+    assert "✅ PASS" in _top_line(plat.summary) and "not fully reviewed" in _top_line(plat.summary)

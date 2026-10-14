@@ -51,3 +51,12 @@ def test_config_comes_from_base_commit(repo, capsys):
     assert cli.main(["--platform", "local", "--base", base]) == 1
     out = capsys.readouterr().out
     assert "STATUS: failure" in out and "at or above 'critical'" in out
+
+
+def test_pr_cannot_set_on_truncate_pass(repo, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "review_chunks", lambda cfg, chunks, key: ([], Usage()))
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / "big.txt").write_text("x" * 50_000 + "\n")
+    _pr_head(repo, "on_truncate: pass\n")
+    assert cli.main(["--platform", "local", "--base", base]) == 1
+    assert "STATUS: failure - FAIL: 1 file(s) truncated" in capsys.readouterr().out
