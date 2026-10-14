@@ -12,7 +12,10 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
+      # Run the gate code from the base commit so a PR cannot change its own gate.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
       - uses: ./
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

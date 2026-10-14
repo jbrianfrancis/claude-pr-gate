@@ -13,7 +13,7 @@ inputs:
     required: false
     default: ""
   config:
-    description: Path to the rules file
+    description: Path to the rules file. Read from the PR's base commit, never the PR head
     required: false
     default: .pr-gate.yml
   github-token:

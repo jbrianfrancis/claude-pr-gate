@@ -5,7 +5,7 @@ import argparse
 import os
 import sys
 
-from .config import load_config
+from .config import parse_config
 from .diff import chunk, filter_files, parse_diff
 from .gate import decide, render_summary
 from .platforms import Bitbucket, GitHub, Local
@@ -60,8 +60,11 @@ def main(argv=None) -> int:
     p.add_argument("--diff-file", help="local mode: review this diff file")
     p.add_argument("--base", help="local mode: git base ref (default origin/main)")
     args = p.parse_args(argv)
-    cfg = load_config(args.config, {"model": args.model or os.environ.get("PR_GATE_MODEL")})
-    return run(make_platform(args.platform, args), cfg, os.environ.get("ANTHROPIC_API_KEY", ""))
+    platform = make_platform(args.platform, args)
+    # Rules come from the PR's base commit, never its head, so a PR cannot loosen its own gate.
+    cfg = parse_config(platform.read_base_file(args.config),
+                       {"model": args.model or os.environ.get("PR_GATE_MODEL")})
+    return run(platform, cfg, os.environ.get("ANTHROPIC_API_KEY", ""))
 
 
 if __name__ == "__main__":

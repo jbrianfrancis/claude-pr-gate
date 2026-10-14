@@ -4,7 +4,10 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import urllib.error
+import urllib.parse
 import urllib.request
+from pathlib import Path
 
 from .gate import MARKER
 from .review import Finding
@@ -27,6 +30,16 @@ def git_diff(base: str, head: str = "HEAD") -> str:
                           check=True, capture_output=True, text=True).stdout
 
 
+def git_show(ref: str, path: str) -> str | None:
+    """Contents of `path` at commit `ref`, or None if the file does not exist there."""
+    subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+                   check=True, capture_output=True)
+    spec = f"{ref}:{path.removeprefix('./')}"
+    if subprocess.run(["git", "cat-file", "-e", spec], capture_output=True).returncode != 0:
+        return None
+    return subprocess.run(["git", "show", spec], check=True, capture_output=True, text=True).stdout
+
+
 class Local:
     """Prints results; used for dry runs and demos."""
     def __init__(self, diff_file: str | None = None, base: str | None = None):
@@ -37,6 +50,11 @@ class Local:
             with open(self.diff_file) as fh:
                 return fh.read()
         return git_diff(self.base or "origin/main")
+
+    def read_base_file(self, path: str) -> str | None:
+        if self.diff_file:  # a bare diff file has no base commit; use the working tree
+            return Path(path).read_text() if Path(path).exists() else None
+        return git_show(self.base or "origin/main", path)
 
     def post_summary(self, body: str) -> None:
         print(body)
@@ -50,8 +68,10 @@ class Local:
 
 
 class GitHub:
-    def __init__(self, token: str, repo: str, pr: int, sha: str, api: str = "https://api.github.com"):
+    def __init__(self, token: str, repo: str, pr: int, sha: str, api: str = "https://api.github.com",
+                 base_sha: str | None = None):
         self.repo, self.pr, self.sha, self.api = repo, pr, sha, api.rstrip("/")
+        self.base_sha = base_sha
         self.h = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
                   "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "claude-pr-gate"}
 
@@ -61,11 +81,25 @@ class GitHub:
             ev = json.load(fh)
         pr = ev["pull_request"]
         return cls(os.environ["GITHUB_TOKEN"], os.environ["GITHUB_REPOSITORY"], pr["number"],
-                   pr["head"]["sha"], os.environ.get("GITHUB_API_URL", "https://api.github.com"))
+                   pr["head"]["sha"], os.environ.get("GITHUB_API_URL", "https://api.github.com"),
+                   base_sha=pr["base"]["sha"])
 
     def get_diff(self) -> str:
         h = dict(self.h, Accept="application/vnd.github.v3.diff")
         return http("GET", f"{self.api}/repos/{self.repo}/pulls/{self.pr}", h, raw=True)
+
+    def read_base_file(self, path: str) -> str | None:
+        if not self.base_sha:
+            raise RuntimeError("PR base sha is unknown; refusing to read config from the PR head")
+        h = dict(self.h, Accept="application/vnd.github.raw")
+        url = (f"{self.api}/repos/{self.repo}/contents/{urllib.parse.quote(path.removeprefix('./'))}"
+               f"?ref={self.base_sha}")
+        try:
+            return http("GET", url, h, raw=True)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            raise
 
     def post_summary(self, body: str) -> None:
         # Update our previous comment instead of piling up new ones.
@@ -107,6 +141,10 @@ class Bitbucket:
     def get_diff(self) -> str:
         subprocess.run(["git", "fetch", "origin", self.dest], check=True, capture_output=True)
         return git_diff(f"origin/{self.dest}", self.sha)
+
+    def read_base_file(self, path: str) -> str | None:
+        subprocess.run(["git", "fetch", "origin", self.dest], check=True, capture_output=True)
+        return git_show(f"origin/{self.dest}", path)
 
     def post_summary(self, body: str) -> None:
         http("POST", f"{self.base}/pullrequests/{self.pr}/comments", self.h, {"content": {"raw": body}})

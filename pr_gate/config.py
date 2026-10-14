@@ -50,9 +50,15 @@ class ConfigError(ValueError):
 
 
 def load_config(path: str | Path | None = None, overrides: dict[str, Any] | None = None) -> Config:
+    text = Path(path).read_text() if path and Path(path).exists() else None
+    return parse_config(text, overrides)
+
+
+def parse_config(text: str | None, overrides: dict[str, Any] | None = None) -> Config:
+    """Build a Config from .pr-gate.yml text. None means the file is absent: use defaults."""
     data = copy.deepcopy(DEFAULTS)
-    if path and Path(path).exists():
-        loaded = yaml.safe_load(Path(path).read_text()) or {}
+    if text is not None:
+        loaded = yaml.safe_load(text) or {}
         if not isinstance(loaded, dict):
             raise ConfigError(".pr-gate.yml must be a mapping")
         # ignore_paths extends the defaults rather than replacing them

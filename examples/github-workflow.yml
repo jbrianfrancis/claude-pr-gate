@@ -13,7 +13,7 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4   # needed so the action can read .pr-gate.yml
+      # No checkout needed: the action reads the diff and the base commit's .pr-gate.yml via the API.
       - uses: jbrianfrancis/claude-pr-gate@v1.3
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

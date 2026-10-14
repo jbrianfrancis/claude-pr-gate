@@ -39,13 +39,12 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository  # forks get no secrets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - uses: jbrianfrancis/claude-pr-gate@v1.3
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-3. Optional: copy [`.pr-gate.yml`](.pr-gate.yml) into your repo and edit the rules.
+3. Optional: copy [`.pr-gate.yml`](.pr-gate.yml) into your repo and edit the rules. The gate reads it from the PR's **base** commit, so a PR that edits `.pr-gate.yml` cannot change its own gate. Rule changes apply to PRs opened after they merge.
 4. Optional: in branch protection, make `claude-pr-gate` a required status check.
 
 ### Bitbucket
@@ -63,7 +62,7 @@ python -m pr_gate --platform local --base origin/main   # review your current br
 
 ## Config reference (`.pr-gate.yml`)
 
-All keys are optional.
+All keys are optional. The file is read from the PR's base commit (GitHub: `pull_request.base.sha`; Bitbucket: the destination branch; local: `--base`). If the base has no `.pr-gate.yml`, the defaults apply.
 
 | Key | Default | Meaning |
 |---|---|---|
