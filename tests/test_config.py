@@ -5,7 +5,7 @@ from pr_gate.config import ConfigError, load_config
 
 def test_defaults_when_missing(tmp_path):
     cfg = load_config(tmp_path / "nope.yml")
-    assert cfg.fail_on == "high" and cfg.on_error == "open"
+    assert cfg.fail_on == "high" and cfg.on_error == "closed"
     assert cfg.model.startswith("claude-sonnet")
 
 

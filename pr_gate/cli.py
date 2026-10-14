@@ -9,7 +9,7 @@ from .config import parse_config
 from .diff import chunk, filter_files, parse_diff
 from .gate import decide, render_summary
 from .platforms import Bitbucket, GitHub, Local
-from .review import Usage, review_chunks
+from .review import ModelOutputError, Usage, review_chunks
 
 
 def make_platform(name: str, args):
@@ -37,7 +37,9 @@ def run(platform, cfg, api_key: str, caller=None) -> int:
         passed, reasons = decide(cfg, findings)
     except Exception as e:  # noqa: BLE001 - gate policy decides what an error means
         error = f"{type(e).__name__}: {e}"
-        passed, reasons, added = cfg.on_error == "open", [], {}
+        # A diff can steer the model into a non-JSON reply, so that always fails, whatever on_error says.
+        passed = cfg.on_error == "open" and not isinstance(e, ModelOutputError)
+        reasons, added = [], {}
 
     body = render_summary(cfg, passed, reasons, findings, skipped, truncated, usage, redactions, error)
     platform.post_summary(body)

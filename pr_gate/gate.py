@@ -44,8 +44,8 @@ def render_summary(cfg: Config, passed: bool, reasons: list[str], findings: list
     status = "✅ PASS" if passed else "❌ FAIL"
     lines.append(f"## AI PR Gate: {status}")
     if error:
-        lines.append(f"\n> ⚠️ The gate could not complete: `{error}`. Policy `on_error: {cfg.on_error}` "
-                     f"→ {'passing (fail-open)' if passed else 'failing (fail-closed)'}.")
+        lines.append(f"\n> ⚠️ The gate could not complete: `{error}` → "
+                     f"{'passing (fail-open, `on_error: open`)' if passed else 'failing (fail-closed)'}.")
     for r in reasons:
         lines.append(f"- {r}")
     if findings:

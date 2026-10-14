@@ -15,7 +15,7 @@ DEFAULTS: dict[str, Any] = {
     "max_tokens": 4096,
     "fail_on": "high",            # lowest severity that fails the gate
     "max_findings": {},           # e.g. {"medium": 5}: fail if more than 5 medium findings
-    "on_error": "open",           # "open" = pass if the gate itself errors; "closed" = fail
+    "on_error": "closed",         # "closed" = fail if the gate itself errors; "open" = pass
     "categories": ["security", "quality"],
     "ignore_paths": ["**/*.lock", "**/package-lock.json", "**/dist/**", "**/vendor/**", "**/*.min.js"],
     "secret_paths": ["**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/id_rsa*",

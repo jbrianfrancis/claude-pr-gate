@@ -76,13 +76,23 @@ def call_anthropic(api_key: str, model: str, max_tokens: int, system: str, user:
     raise RuntimeError(f"Anthropic API failed after {retries} attempts: {last}")
 
 
+class ModelOutputError(ValueError):
+    """The model did not reply with the findings JSON we asked for."""
+
+
 def parse_findings(text: str) -> list[Finding]:
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
-        raise ValueError("model response contained no JSON")
-    data = json.loads(m.group(0))
+        raise ModelOutputError("model response contained no JSON")
+    try:
+        data = json.loads(m.group(0))
+    except json.JSONDecodeError as e:
+        raise ModelOutputError(f"model response was not valid JSON: {e}") from e
+    if not isinstance(data, dict) or not isinstance(data.get("findings"), list) \
+            or not all(isinstance(f, dict) for f in data["findings"]):
+        raise ModelOutputError("model response JSON has no valid 'findings' list")
     out = []
-    for f in data.get("findings", []):
+    for f in data["findings"]:
         sev = str(f.get("severity", "info")).lower()
         if sev not in SEVERITIES:
             sev = "info"

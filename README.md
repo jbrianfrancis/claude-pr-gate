@@ -17,7 +17,7 @@ Small teams merge fast. Human reviewers skim large diffs, miss the SQL built wit
 - Sets a **PASS/FAIL** commit status (`claude-pr-gate`) that you can make a required check
 - Handles **large diffs**: groups files into chunks, truncates oversized files, and enforces a total budget. Anything not fully reviewed is listed in the comment
 - **Skips binaries**, never sends `.env`, keys, certs or credential files, and **redacts secret-looking strings** (AWS, GitHub, Slack, Anthropic keys, private keys) before anything leaves the runner
-- **Fail-open or fail-closed** when the API is down or the key is missing, your choice
+- **Fails closed** by default when the API is down, the key is missing, or the model reply is not valid JSON. You can opt into fail-open for infrastructure errors; an unparseable model reply always fails
 - No SDK dependencies: Python stdlib plus PyYAML
 
 ## 2-minute setup (GitHub)
@@ -69,7 +69,7 @@ All keys are optional. The file is read from the PR's base commit (GitHub: `pull
 | `model` | `claude-sonnet-5-5` | Anthropic model id. The action input `model` or env `PR_GATE_MODEL` overrides it |
 | `fail_on` | `high` | Lowest severity that fails the gate: `info` `low` `medium` `high` `critical`, or `none` |
 | `max_findings` | `{}` | Per-severity count limits, e.g. `{medium: 5}` fails on the 6th medium |
-| `on_error` | `open` | If the gate itself errors: `open` passes (and says so), `closed` fails |
+| `on_error` | `closed` | If the gate itself errors (API down, missing key): `closed` fails, `open` passes (and says so). An unparseable or non-JSON model reply always fails |
 | `categories` | `[security, quality]` | What the reviewer looks for |
 | `custom_rules` | `[]` | List of `{id, description, severity}`. Violations are reported under the rule id at your severity |
 | `ignore_paths` | lockfiles, `dist/`, `vendor/`, `*.min.js` | Globs **added** to the defaults; matched files are not reviewed |

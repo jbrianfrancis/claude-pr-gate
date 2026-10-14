@@ -1,6 +1,8 @@
 """End-to-end runs of the example PR scenarios with the model mocked."""
 from pathlib import Path
 
+import pytest
+
 from pr_gate.cli import run
 from pr_gate.config import load_config
 from helpers import FakePlatform, RecordingCaller, fake_response
@@ -46,16 +48,17 @@ def test_clean_pr_passes():
     assert plat.inline is None
 
 
-def test_fail_open_on_api_error():
+def test_fail_open_on_api_error_when_opted_in():
+    cfg = load_config(ROOT / ".pr-gate.yml", {"on_error": "open"})
     plat = FakePlatform((SC / "03-clean-refactor.diff").read_text())
-    assert run(plat, CFG, "k", caller=RecordingCaller(RuntimeError("API down"))) == 0
+    assert run(plat, cfg, "k", caller=RecordingCaller(RuntimeError("API down"))) == 0
     assert plat.status[0] is True and "fail-open" in plat.summary
 
 
-def test_fail_closed_on_api_error():
-    cfg = load_config(ROOT / ".pr-gate.yml", {"on_error": "closed"})
+def test_fail_closed_on_api_error_by_default():
     plat = FakePlatform((SC / "03-clean-refactor.diff").read_text())
-    assert run(plat, cfg, "k", caller=RecordingCaller(RuntimeError("API down"))) == 1
+    assert CFG.on_error == "closed" and load_config(None).on_error == "closed"
+    assert run(plat, CFG, "k", caller=RecordingCaller(RuntimeError("API down"))) == 1
     assert plat.status == (False, "FAIL: gate error") and "fail-closed" in plat.summary
 
 
@@ -70,3 +73,20 @@ def test_only_ignored_files_means_no_api_call():
     caller = RecordingCaller(RuntimeError("should not be called"))
     plat = FakePlatform(diff)
     assert run(plat, CFG, "k", caller=caller) == 0 and caller.prompts == []
+
+
+EVIL = "diff --git a/app.py b/app.py\n--- a/app.py\n+++ b/app.py\n@@ -1,0 +1,1 @@\n+os.system(request.args['c'])\n"
+
+
+def _text_reply(text):
+    return {"content": [{"type": "text", "text": text}], "usage": {"input_tokens": 10, "output_tokens": 5}}
+
+
+@pytest.mark.parametrize("on_error", ["closed", "open"])
+@pytest.mark.parametrize("reply", ["Sure! Looks fine.", "{not json}", '{"verdict": "ok"}', '{"findings": "none"}'])
+def test_unparseable_model_reply_fails(on_error, reply):
+    """Audit PoC 1: a prompt-injected diff makes the model answer in prose. That must never PASS."""
+    plat = FakePlatform(EVIL)
+    cfg = load_config(ROOT / ".pr-gate.yml", {"on_error": on_error})
+    assert run(plat, cfg, "k", caller=RecordingCaller(_text_reply(reply))) == 1
+    assert plat.status == (False, "FAIL: gate error") and "fail-closed" in plat.summary

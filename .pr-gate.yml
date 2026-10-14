@@ -3,7 +3,7 @@ model: claude-sonnet-5-5
 fail_on: high              # info | low | medium | high | critical | none
 max_findings:
   medium: 5                # also fail if more than 5 medium findings
-on_error: open             # open = pass if the gate itself breaks; closed = fail
+on_error: closed           # closed = fail if the gate itself breaks; open = pass
 categories: [security, quality]
 ignore_paths:              # added to built-in ignores (lockfiles, dist, vendor, *.min.js)
   - "docs/**"
