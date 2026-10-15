@@ -1,0 +1,5 @@
+# Changes to the gate itself, its workflows, and this file need review from the owner.
+/.github/workflows/ @jbrianfrancis
+/.github/CODEOWNERS @jbrianfrancis
+/action.yml @jbrianfrancis
+/pr_gate/ @jbrianfrancis
