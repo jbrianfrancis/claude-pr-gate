@@ -6,7 +6,7 @@ import os
 import sys
 
 from .config import parse_config
-from .diff import chunk, filter_files, parse_diff, redact>>>>>>> origin/main
+from .diff import chunk, filter_files, parse_diff, redact
 from .gate import decide, render_summary
 from .platforms import Bitbucket, GitHub, Local
 from .review import ModelOutputError, Usage, review_chunks

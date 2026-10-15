@@ -16,7 +16,7 @@ Small teams merge fast. Human reviewers skim large diffs, miss the SQL built wit
 - Posts **one** summary comment (updated in place on each push, not spammed) and optional **inline comments** on added lines
 - Sets a **PASS/FAIL** commit status (`claude-pr-gate`) that you can make a required check
 - Handles **large diffs**: groups files into chunks, truncates oversized files, and enforces a total budget. If anything is not fully reviewed, the gate **fails** by default and says so in the comment's first line and the status
-- **Skips binaries**, never sends `.env`, keys, certs or credential files, and **redacts secret-looking strings** before anything leaves the runner. The model's findings are redacted again before they are posted. See [Data handling](#data-handling)>>>>>>> origin/main
+- **Skips binaries**, never sends `.env`, keys, certs or credential files, and **redacts secret-looking strings** before anything leaves the runner. The model's findings are redacted again before they are posted. See [Data handling](#data-handling)
 - **Fails closed** by default when the API is down, the key is missing, or the model reply is not valid JSON. You can opt into fail-open for infrastructure errors; an unparseable model reply always fails
 - No SDK dependencies: Python stdlib plus PyYAML
 
