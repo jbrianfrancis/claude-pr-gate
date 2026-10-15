@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ DEFAULTS: dict[str, Any] = {
     "inline_comments": True,
     "max_inline_comments": 15,
     "custom_rules": [],           # list of {id, description, severity}
+    "redact_patterns": [],        # extra regexes redacted from the diff and from posted comments
 }
 
 
@@ -45,6 +47,7 @@ class Config:
     inline_comments: bool
     max_inline_comments: int
     custom_rules: list[dict[str, Any]] = field(default_factory=list)
+    redact_patterns: list[str] = field(default_factory=list)
 
 
 class ConfigError(ValueError):
@@ -96,6 +99,13 @@ def _validate(d: dict[str, Any]) -> None:
             raise ConfigError("each custom rule needs 'id' and 'description'")
         if r.get("severity", "medium") not in SEVERITIES:
             raise ConfigError(f"custom rule {r['id']}: bad severity")
+    if not isinstance(d["redact_patterns"], list):
+        raise ConfigError("redact_patterns must be a list of regexes")
+    for i, pat in enumerate(d["redact_patterns"]):
+        try:
+            re.compile(pat)
+        except (re.error, TypeError) as e:
+            raise ConfigError(f"redact_patterns[{i}] {pat!r} is not a valid regex: {e}") from e
     d["max_tokens"] = int(d["max_tokens"])
     d["max_diff_chars"] = int(d["max_diff_chars"])
     d["chunk_chars"] = int(d["chunk_chars"])

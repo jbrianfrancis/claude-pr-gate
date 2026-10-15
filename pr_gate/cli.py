@@ -6,7 +6,7 @@ import os
 import sys
 
 from .config import parse_config
-from .diff import chunk, filter_files, parse_diff
+from .diff import chunk, filter_files, parse_diff, redact
 from .gate import decide, render_summary
 from .platforms import Bitbucket, GitHub, Local
 from .review import ModelOutputError, Usage, review_chunks
@@ -26,7 +26,7 @@ def run(platform, cfg, api_key: str, caller=None) -> int:
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
         files = parse_diff(platform.get_diff())
-        res = filter_files(files, cfg.ignore_paths, cfg.secret_paths)
+        res = filter_files(files, cfg.ignore_paths, cfg.secret_paths, cfg.redact_patterns)
         skipped, redactions = res.skipped, res.redactions
         chunks, truncated = chunk(res.files, cfg.chunk_chars, cfg.max_diff_chars)
         truncated = list(dict.fromkeys(truncated))  # a file can be both truncated and over budget
@@ -43,7 +43,7 @@ def run(platform, cfg, api_key: str, caller=None) -> int:
         reasons, added = [], {}
 
     body = render_summary(cfg, passed, reasons, findings, skipped, truncated, usage, redactions, error)
-    platform.post_summary(body)
+    platform.post_summary(redact(body, cfg.redact_patterns)[0])
     if cfg.inline_comments and findings:
         inline = [f for f in findings if f.path in added and f.line in added[f.path]][: cfg.max_inline_comments]
         try:

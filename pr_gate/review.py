@@ -10,6 +10,7 @@ import urllib.request
 from dataclasses import dataclass
 
 from .config import SEVERITIES, Config
+from .diff import redact
 
 API_URL = os.environ.get("ANTHROPIC_API_URL", "https://api.anthropic.com/v1/messages")
 
@@ -121,6 +122,11 @@ def review_chunks(cfg: Config, chunks: list[str], api_key: str, caller=call_anth
         usage.output_tokens += u.get("output_tokens", 0)
         text = "".join(b.get("text", "") for b in resp.get("content", []) if b.get("type") == "text")
         findings.extend(parse_findings(text))
+    # the model may echo a secret back; never let it reach a PR comment
+    for f in findings:
+        f.title = redact(f.title, cfg.redact_patterns)[0]
+        f.detail = redact(f.detail, cfg.redact_patterns)[0]
+        f.category = redact(f.category, cfg.redact_patterns)[0]
     # custom rules carry their configured severity
     sev_by_rule = {r["id"]: r.get("severity", "medium") for r in cfg.custom_rules}
     for f in findings:
