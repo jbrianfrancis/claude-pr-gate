@@ -16,7 +16,7 @@ Small teams merge fast. Human reviewers skim large diffs, miss the SQL built wit
 - Posts **one** summary comment (updated in place on each push, not spammed) and optional **inline comments** on added lines
 - Sets a **PASS/FAIL** commit status (`claude-pr-gate`) that you can make a required check
 - Handles **large diffs**: groups files into chunks, truncates oversized files, and enforces a total budget. If anything is not fully reviewed, the gate **fails** by default and says so in the comment's first line and the status
-- **Skips binaries**, never sends `.env`, keys, certs or credential files, and **redacts secret-looking strings** (AWS, GitHub, Slack, Anthropic keys, private keys) before anything leaves the runner
+- **Skips binaries**, never sends `.env`, keys, certs or credential files, and **redacts secret-looking strings** before anything leaves the runner. The model's findings are redacted again before they are posted. See [Data handling](#data-handling)
 - **Fails closed** by default when the API is down, the key is missing, or the model reply is not valid JSON. You can opt into fail-open for infrastructure errors; an unparseable model reply always fails
 - No SDK dependencies: Python stdlib plus PyYAML
 
@@ -80,6 +80,7 @@ All keys are optional. The file is read from the PR's base commit (GitHub: `pull
 | `inline_comments` | `true` | Post inline review comments on added lines |
 | `max_inline_comments` | `15` | Cap on inline comments |
 | `max_tokens` | `4096` | Max output tokens per request |
+| `redact_patterns` | `[]` | Extra regexes to redact, added to the built-in patterns. Applied to the diff before it is sent and to findings and the summary before they are posted. An invalid regex is a config error |
 
 ## What it catches (live demo PRs)
 
@@ -113,6 +114,8 @@ A team opening 200 PRs a month with about 3 pushes each spends roughly **$5–15
 
 - Only the **diff** of the PR is sent to the Anthropic API, not the whole repository.
 - Binary files, files matching `secret_paths`, and ignored paths are dropped **before** sending. Secret-looking strings are replaced with `[REDACTED-SECRET]`. The PR comment lists everything that was skipped.
+- Built-in redaction covers: Stripe `sk_live_` / `rk_live_` / `sk_test_` keys, AWS access key ids (`AKIA…`, `ASIA…`) and `aws_secret_access_key` values, GitHub tokens (`ghp_` `gho_` `ghu_` `ghs_` `ghr_` `github_pat_`), Slack `xox[abprs]-` tokens, Google `AIza…` keys, Anthropic `sk-ant-` keys, `sk-…` keys, PEM private-key blocks (BEGIN through END), JWTs, and assignments such as `API_KEY=`, `SECRET:`, `"token": "…"`, `PASSWORD=` whose value is at least 16 characters, mixes letters and digits, and has high entropy. `password = get_password()`, `token = None`, short values and UUIDs are left alone. Add your own formats with `redact_patterns`.
+- The same redaction runs on the model's finding titles, details and categories and on the summary comment before anything is posted, so a secret the model echoes back is not published on the PR.
 - Under Anthropic's commercial terms, API inputs and outputs aren't used to train models by default. Check their current policy and your own compliance needs.
 - The action runs on your own runner with your own key. Nothing goes to any third party except Anthropic.
 - Diff content is treated as untrusted data in the prompt, so instructions hidden in code comments are ignored.
